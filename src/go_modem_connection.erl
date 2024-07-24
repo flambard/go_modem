@@ -1,16 +1,20 @@
 -module(go_modem_connection).
--behaviour(gen_server).
+-behaviour(gen_statem).
 
 -include("go_modem.hrl").
 
 %% API
 -export([start_link/3]).
 
-%% gen_server callbacks
+%% gen_statem callbacks
 -export([
     init/1,
-    handle_call/3,
-    handle_cast/2
+    callback_mode/0
+]).
+
+%% state functions
+-export([
+    neutral/3
 ]).
 
 -define(MESSAGE_BYTE_SIZE, 4).
@@ -20,41 +24,48 @@
 %%%
 
 start_link(IoDevice, Server, ServerMod) ->
-    gen_server:start_link(?MODULE, [IoDevice, Server, ServerMod], []).
+    gen_statem:start_link(?MODULE, [IoDevice, Server, ServerMod], []).
 
 %%%
-%%% gen_server callbacks
+%%% gen_statem callbacks
 %%%
 
 init([IoDevice, Server, ServerMod]) ->
     Self = self(),
     _Reader = spawn_link(fun() -> read_loop(IoDevice, Self) end),
-    State = #{
+    Data = #{
         io_device => IoDevice,
         server => Server,
         server_module => ServerMod
     },
-    {ok, State}.
+    {ok, neutral, Data}.
 
-handle_call(_Call, _From, State) ->
-    {reply, ok, State}.
+callback_mode() -> state_functions.
 
-handle_cast({message, MessageBytes}, State) ->
-    #{io_device := IoDevice} = State,
+%%%
+%%% Neutral state
+%%%
+
+neutral(cast, {message, MessageBytes}, Data) ->
+    #{io_device := IoDevice} = Data,
 
     Message = go_modem_protocol:decode_message(MessageBytes),
     #message{his = H, yours = Y, command = Command} = Message,
     logger:info("His sequence bit: ~p, your sequence bit: ~p", [H, Y]),
 
-    case handle_command(Command, State) of
-        {noreply, NewState} ->
-            {noreply, NewState};
-        {reply, Response, NewState} ->
+    case handle_command(Command, Data) of
+        {noreply, NewData} ->
+            {keep_state, NewData};
+        {reply, Response, NewData} ->
             ResponseMessage = #message{his = Y, yours = H, command = Response},
             ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
             ok = file:write(IoDevice, ResponseBytes),
-            {noreply, NewState}
+            {keep_state, NewData}
     end.
+
+%%%
+%%% OK Wait state
+%%%
 
 %%%
 %%% Private functions
@@ -62,14 +73,14 @@ handle_cast({message, MessageBytes}, State) ->
 
 read_loop(IoDevice, Connection) ->
     {ok, Bytes} = file:read(IoDevice, ?MESSAGE_BYTE_SIZE),
-    ok = gen_server:cast(Connection, {message, Bytes}),
+    ok = gen_statem:cast(Connection, {message, Bytes}),
     read_loop(IoDevice, Connection).
 
-handle_command(new_game, State) ->
-    #{server := Server, server_module := ServerMod} = State,
+handle_command(new_game, Data) ->
+    #{server := Server, server_module := ServerMod} = Data,
     Reply = ServerMod:new_game(Server),
-    {reply, Reply, State};
-handle_command({move, Player, Move}, State) ->
-    #{server := Server, server_module := ServerMod} = State,
+    {reply, Reply, Data};
+handle_command({move, Player, Move}, Data) ->
+    #{server := Server, server_module := ServerMod} = Data,
     Reply = ServerMod:move(Server, Player, Move),
-    {reply, Reply, State}.
+    {reply, Reply, Data}.
