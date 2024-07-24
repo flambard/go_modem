@@ -1,0 +1,15 @@
+{application, go_modem, [
+    {description, "Go Modem Protocol"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {go_modem_app, []}},
+    {applications, [
+        kernel,
+        stdlib
+    ]},
+    {env, []},
+    {modules, []},
+
+    {licenses, ["Apache-2.0"]},
+    {links, []}
+]}.
