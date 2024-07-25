@@ -50,14 +50,14 @@ neutral(cast, {message, MessageBytes}, Data) ->
     #{io_device := IoDevice} = Data,
 
     Message = go_modem_protocol:decode_message(MessageBytes),
-    #message{his = H, yours = Y, command = Command} = Message,
-    logger:info("His sequence bit: ~p, your sequence bit: ~p", [H, Y]),
+    #message{sender_seq_id = S, receiver_seq_id = R, command = Command} = Message,
+    logger:info("Sender sequence bit: ~p, receiver sequence bit: ~p", [S, R]),
 
     case handle_command(Command, Data) of
         {noreply, NewData} ->
             {keep_state, NewData};
         {reply, Response, NewData} ->
-            ResponseMessage = #message{his = Y, yours = H, command = Response},
+            ResponseMessage = #message{sender_seq_id = R, receiver_seq_id = S, command = Response},
             ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
             ok = file:write(IoDevice, ResponseBytes),
             {keep_state, NewData}
