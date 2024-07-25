@@ -163,12 +163,27 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
         #message{command = deny} ->
             %% Not possible - discard
             keep_state_and_data;
+        #message{
+            send_seq_id = NextSenderSeqID,
+            recv_seq_id = MySeqID,
+            command = {answer, Answer}
+        } ->
+            {reply, Response, NewData} = handle_command({answer, Answer}, Data),
+            ResponseMessage = #message{
+                send_seq_id = MySeqID,
+                recv_seq_id = NextSenderSeqID,
+                command = Response
+            },
+            ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
+            ok = send_message(IoDevice, ResponseBytes),
+            {next_state, neutral, NewData#{opponent_seq_id => NextSenderSeqID}};
         %% TODO: If seq IDs does not match with expected IDs, see spec what to do
         #message{
             send_seq_id = NextSenderSeqID,
             recv_seq_id = MySeqID,
             command = Command
         } ->
+            %% TODO: Maybe not handle commands generally in state ok_wait
             case handle_command(Command, Data) of
                 {noreply, NewData} ->
                     {next_state, neutral, NewData};
