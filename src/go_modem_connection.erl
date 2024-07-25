@@ -65,26 +65,22 @@ neutral({call, From}, {send_command, Command}, Data) ->
     } = Data,
 
     MyNewSeqID = (MySeqID + 1) rem 2,
+
     Message = #message{
         send_seq_id = MyNewSeqID,
         recv_seq_id = OpponentSeqID,
         command = Command
     },
+
     MessageBytes = go_modem_protocol:encode_message(Message),
     ok = send_message(IoDevice, MessageBytes),
+
     NewData =
         case Command of
-            {query, Query} ->
-                Data#{
-                    my_seq_id => MyNewSeqID,
-                    answer_to => From,
-                    outstanding_query => Query
-                };
-            _Command ->
-                Data#{my_seq_id => MyNewSeqID}
+            {query, Query} -> Data#{answer_to => From, outstanding_query => Query};
+            _ -> Data
         end,
-
-    {next_state, ok_wait, NewData};
+    {next_state, ok_wait, NewData#{my_seq_id => MyNewSeqID}};
 neutral(cast, {recv_message, MessageBytes}, Data) ->
     #{
         io_device := IoDevice,
