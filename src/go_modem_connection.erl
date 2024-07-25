@@ -94,6 +94,8 @@ neutral(cast, {recv_message, MessageBytes}, Data) ->
 
     Message = go_modem_protocol:decode_message(MessageBytes),
 
+    logger:info("Message while in Neutral. My ID: ~p, Opponent ID: ~p", [MySeqID, OpponentSeqID]),
+
     %% TODO: If my seq ID does not match with receiver seq ID, see spec what to do
     #message{
         send_seq_id = SenderSeqID,
@@ -149,7 +151,7 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
         {reply, Response, NewData} ->
             ResponseMessage = #message{
                 send_seq_id = MySeqID,
-                recv_seq_id = OpponentSeqID,
+                recv_seq_id = SenderSeqID,
                 command = Response
             },
             ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
