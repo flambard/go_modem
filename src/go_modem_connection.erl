@@ -71,7 +71,7 @@ neutral({call, From}, {send_command, Command}, Data) ->
         command = Command
     },
     MessageBytes = go_modem_protocol:encode_message(Message),
-    ok = send(IoDevice, MessageBytes),
+    ok = send_message(IoDevice, MessageBytes),
     NewData =
         case Command of
             {query, Query} ->
@@ -114,7 +114,7 @@ neutral(cast, {recv_message, MessageBytes}, Data) ->
                         command = Response
                     },
                     ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
-                    ok = send(IoDevice, ResponseBytes),
+                    ok = send_message(IoDevice, ResponseBytes),
                     {keep_state, NewData#{opponent_seq_id => NextSenderSeqID}}
             end
     end.
@@ -152,7 +152,7 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
                         command = Response
                     },
                     ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
-                    ok = send(IoDevice, ResponseBytes),
+                    ok = send_message(IoDevice, ResponseBytes),
                     {next_state, neutral, NewData#{opponent_seq_id => NextSenderSeqID}}
             end
     end.
@@ -166,7 +166,7 @@ read_loop(IoDevice, Connection) ->
     ok = gen_statem:cast(Connection, {recv_message, Bytes}),
     read_loop(IoDevice, Connection).
 
-send(IoDevice, Bytes) ->
+send_message(IoDevice, Bytes) ->
     ok = file:write(IoDevice, Bytes).
 
 handle_command(new_game, Data) ->
