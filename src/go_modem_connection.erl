@@ -92,32 +92,31 @@ neutral(cast, {recv_message, MessageBytes}, Data) ->
         opponent_seq_id := OpponentSeqID
     } = Data,
 
-    Message = go_modem_protocol:decode_message(MessageBytes),
-
     logger:info("Message while in Neutral. My ID: ~p, Opponent ID: ~p", [MySeqID, OpponentSeqID]),
 
-    %% TODO: If my seq ID does not match with receiver seq ID, see spec what to do
-    #message{
-        send_seq_id = SenderSeqID,
-        recv_seq_id = MySeqID,
-        command = Command
-    } = Message,
-
     %% TODO: If repeated ID, discard the message
-    SenderSeqID = (OpponentSeqID + 1) rem 2,
+    NextSenderSeqID = (OpponentSeqID + 1) rem 2,
 
-    case handle_command(Command, Data) of
-        {noreply, NewData} ->
-            {keep_state, NewData#{opponent_seq_id => SenderSeqID}};
-        {reply, Response, NewData} ->
-            ResponseMessage = #message{
-                send_seq_id = MySeqID,
-                recv_seq_id = SenderSeqID,
-                command = Response
-            },
-            ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
-            ok = send(IoDevice, ResponseBytes),
-            {keep_state, NewData#{opponent_seq_id => SenderSeqID}}
+    case go_modem_protocol:decode_message(MessageBytes) of
+        %% TODO: If my seq ID does not match with receiver seq ID, see spec what to do
+        #message{
+            send_seq_id = NextSenderSeqID,
+            recv_seq_id = MySeqID,
+            command = Command
+        } ->
+            case handle_command(Command, Data) of
+                {noreply, NewData} ->
+                    {keep_state, NewData#{opponent_seq_id => NextSenderSeqID}};
+                {reply, Response, NewData} ->
+                    ResponseMessage = #message{
+                        send_seq_id = MySeqID,
+                        recv_seq_id = NextSenderSeqID,
+                        command = Response
+                    },
+                    ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
+                    ok = send(IoDevice, ResponseBytes),
+                    {keep_state, NewData#{opponent_seq_id => NextSenderSeqID}}
+            end
     end.
 
 %%%
@@ -131,32 +130,31 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
         opponent_seq_id := OpponentSeqID
     } = Data,
 
-    Message = go_modem_protocol:decode_message(MessageBytes),
-
     logger:info("Message while waiting for OK. My ID: ~p, Opponent ID: ~p", [MySeqID, OpponentSeqID]),
 
-    %% TODO: If seq IDs does not match with expected IDs, see spec what to do
-    #message{
-        send_seq_id = SenderSeqID,
-        recv_seq_id = MySeqID,
-        command = Command
-    } = Message,
+    NextSenderSeqID = (OpponentSeqID + 1) rem 2,
 
-    %% TODO: SenderSeqID = OpponentSeqID when OK/DENY
-    SenderSeqID = (OpponentSeqID + 1) rem 2,
-
-    case handle_command(Command, Data) of
-        {noreply, NewData} ->
-            {next_state, neutral, NewData};
-        {reply, Response, NewData} ->
-            ResponseMessage = #message{
-                send_seq_id = MySeqID,
-                recv_seq_id = SenderSeqID,
-                command = Response
-            },
-            ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
-            ok = send(IoDevice, ResponseBytes),
-            {next_state, neutral, NewData#{opponent_seq_id => OpponentSeqID}}
+    case go_modem_protocol:decode_message(MessageBytes) of
+        %% TODO: SenderSeqID = OpponentSeqID when OK/DENY
+        %% TODO: If seq IDs does not match with expected IDs, see spec what to do
+        #message{
+            send_seq_id = NextSenderSeqID,
+            recv_seq_id = MySeqID,
+            command = Command
+        } ->
+            case handle_command(Command, Data) of
+                {noreply, NewData} ->
+                    {next_state, neutral, NewData};
+                {reply, Response, NewData} ->
+                    ResponseMessage = #message{
+                        send_seq_id = MySeqID,
+                        recv_seq_id = NextSenderSeqID,
+                        command = Response
+                    },
+                    ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
+                    ok = send(IoDevice, ResponseBytes),
+                    {next_state, neutral, NewData#{opponent_seq_id => NextSenderSeqID}}
+            end
     end.
 
 %%%
