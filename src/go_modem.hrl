@@ -1,5 +1,5 @@
 -record(message, {
-    sender_seq_id,
-    receiver_seq_id,
+    send_seq_id,
+    recv_seq_id,
     command
 }).

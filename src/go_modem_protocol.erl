@@ -16,7 +16,7 @@ decode_message(Message) ->
             <<0:6, R:1, S:1, 1:1, _Checksum:7, CommandBytes:2/binary>> = Message,
             {CommandBits, ValueBits} = split_command_bits(CommandBytes),
             Command = decode_command(CommandBits, ValueBits),
-            #message{sender_seq_id = S, receiver_seq_id = R, command = Command}
+            #message{send_seq_id = S, recv_seq_id = R, command = Command}
     end.
 
 split_command_bits(<<1:1, Command:3, R:1, V1:3, 1:1, V2:7>>) ->
@@ -76,7 +76,7 @@ encode_query(character_set) -> 6;
 encode_query(rules) -> 7;
 encode_query(handicap) -> 8.
 
-encode_message(#message{sender_seq_id = S, receiver_seq_id = R, command = Command}) ->
+encode_message(#message{send_seq_id = S, recv_seq_id = R, command = Command}) ->
     StartByte = <<0:6, R:1, S:1>>,
     CommandBytes = encode_command(Command),
     ChecksumByte = go_modem_checksum:calculate(StartByte, CommandBytes),
@@ -116,7 +116,7 @@ encode_command_value(Value) when is_integer(Value) ->
     encode_command_value(<<Value:10>>).
 
 encode_new_game_message_test() ->
-    Message = #message{sender_seq_id = 0, receiver_seq_id = 1, command = new_game},
+    Message = #message{send_seq_id = 0, recv_seq_id = 1, command = new_game},
     IoData = encode_message(Message),
     <<1, 161, 160, 128>> = iolist_to_binary(IoData).
 

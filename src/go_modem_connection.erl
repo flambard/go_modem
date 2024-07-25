@@ -36,7 +36,9 @@ init([IoDevice, Server, ServerMod]) ->
     Data = #{
         io_device => IoDevice,
         server => Server,
-        server_module => ServerMod
+        server_module => ServerMod,
+        my_seq_id => 0,
+        opponent_seq_id => 0
     },
     {ok, neutral, Data}.
 
@@ -46,21 +48,37 @@ callback_mode() -> state_functions.
 %%% Neutral state
 %%%
 
-neutral(cast, {message, MessageBytes}, Data) ->
-    #{io_device := IoDevice} = Data,
+neutral(cast, {recv_message, MessageBytes}, Data) ->
+    #{
+        io_device := IoDevice,
+        my_seq_id := MySeqID,
+        opponent_seq_id := OpponentSeqID
+    } = Data,
 
     Message = go_modem_protocol:decode_message(MessageBytes),
-    #message{sender_seq_id = S, receiver_seq_id = R, command = Command} = Message,
-    logger:info("Sender sequence bit: ~p, receiver sequence bit: ~p", [S, R]),
+
+    %% TODO: If my seq ID does not match with receiver seq ID, see spec what to do
+    #message{
+        send_seq_id = SenderSeqID,
+        recv_seq_id = MySeqID,
+        command = Command
+    } = Message,
+
+    %% TODO: If repeated ID, discard the message
+    SenderSeqID = (OpponentSeqID + 1) rem 2,
 
     case handle_command(Command, Data) of
         {noreply, NewData} ->
-            {keep_state, NewData};
+            {keep_state, NewData#{opponent_seq_id => SenderSeqID}};
         {reply, Response, NewData} ->
-            ResponseMessage = #message{sender_seq_id = R, receiver_seq_id = S, command = Response},
+            ResponseMessage = #message{
+                send_seq_id = MySeqID,
+                recv_seq_id = SenderSeqID,
+                command = Response
+            },
             ResponseBytes = go_modem_protocol:encode_message(ResponseMessage),
-            ok = file:write(IoDevice, ResponseBytes),
-            {keep_state, NewData}
+            ok = send(IoDevice, ResponseBytes),
+            {keep_state, NewData#{opponent_seq_id => SenderSeqID}}
     end.
 
 %%%
@@ -73,8 +91,11 @@ neutral(cast, {message, MessageBytes}, Data) ->
 
 read_loop(IoDevice, Connection) ->
     {ok, Bytes} = file:read(IoDevice, ?MESSAGE_BYTE_SIZE),
-    ok = gen_statem:cast(Connection, {message, Bytes}),
+    ok = gen_statem:cast(Connection, {recv_message, Bytes}),
     read_loop(IoDevice, Connection).
+
+send(IoDevice, Bytes) ->
+    ok = file:write(IoDevice, Bytes).
 
 handle_command(new_game, Data) ->
     #{server := Server, server_module := ServerMod} = Data,
