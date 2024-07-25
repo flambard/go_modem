@@ -33,8 +33,8 @@ decode_command(2#010, <<0:10>>) ->
 decode_command(2#011, <<1:1, ExtendedCommand:9>>) ->
     {query, is_extended_command_supported, ExtendedCommand};
 decode_command(2#011, <<0:1, Query:9>>) ->
-    {query, decode_query(Query)};
-decode_command(2#100, <<Answer/binary>>) ->
+    {query, go_modem_query:decode_query(Query)};
+decode_command(2#100, <<Answer:10>>) ->
     {answer, Answer};
 decode_command(2#101, <<Player:1, Move:9>>) ->
     {move, bit_to_player(Player), bits_to_move(Move)};
@@ -54,27 +54,7 @@ bits_to_move(0) -> pass;
 bits_to_move(_N) -> not_implemented.
 
 move_to_bits(pass) -> 0;
-move_to_bits(_) -> not_imeplemented.
-
-decode_query(0) -> what_game;
-decode_query(1) -> modem_buffer_size;
-decode_query(2) -> protocol_version;
-decode_query(3) -> how_many_stones_on_board;
-decode_query(4) -> black_time_spent;
-decode_query(5) -> white_time_spent;
-decode_query(6) -> character_set;
-decode_query(7) -> rules;
-decode_query(8) -> handicap.
-
-encode_query(what_game) -> 0;
-encode_query(modem_buffer_size) -> 1;
-encode_query(protocol_version) -> 2;
-encode_query(how_many_stones_on_board) -> 3;
-encode_query(black_time_spent) -> 4;
-encode_query(white_time_spent) -> 5;
-encode_query(character_set) -> 6;
-encode_query(rules) -> 7;
-encode_query(handicap) -> 8.
+move_to_bits(_) -> not_implemented.
 
 encode_message(#message{send_seq_id = S, recv_seq_id = R, command = Command}) ->
     StartByte = <<0:6, R:1, S:1>>,
@@ -91,12 +71,9 @@ encode_command(new_game) ->
 encode_command({query, is_extended_command_supported, ExtendedCommand}) ->
     <<2#1011:4, (encode_command_value(<<1:1, ExtendedCommand:9>>))/bitstring>>;
 encode_command({query, Query}) ->
-    QueryBits = encode_query(Query),
+    QueryBits = go_modem_query:encode_query(Query),
     <<2#1011:4, (encode_command_value(<<0:1, QueryBits:9>>))/bitstring>>;
-encode_command({answer, _Answer}) ->
-    %% TODO: Support answering queries
-    %% encode_answer(Answer),
-    AnswerBits = 0,
+encode_command({answer, AnswerBits}) ->
     <<2#1100:4, (encode_command_value(AnswerBits))/bitstring>>;
 encode_command({move, Player, Move}) ->
     PlayerBit = player_to_bit(Player),
@@ -119,33 +96,3 @@ encode_new_game_message_test() ->
     Message = #message{send_seq_id = 0, recv_seq_id = 1, command = new_game},
     IoData = encode_message(Message),
     <<1, 161, 160, 128>> = iolist_to_binary(IoData).
-
-%   1 in binary: 00000001
-% 161 in binary: 10100001
-% 160 in binary: 10100000
-% 128 in binary: 10000000
-
-
-
-% Start byte:
-%   0000 0001
-%          hy
-
-% - h (his sequence bit) = 0
-% - y (your sequence bit) = 1
-
-
-% Checksum byte:
-%   1010 0001
-%    sss ssss
-
-% - s (checksum) = 0100001
-
-
-% Command bytes:
-%   1010 0000 1000 0000
-%    ccc rvvv  vvv vvvv
-
-% - c (command) = 010 (NEWGAME)
-% - r (reserved) = 0
-% - v (value) = 0
