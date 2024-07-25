@@ -213,15 +213,15 @@ send_message(IoDevice, Bytes) ->
 
 handle_command(new_game, Data) ->
     #{server := Server, server_module := ServerMod} = Data,
-    Reply = ServerMod:new_game(Server),
+    Reply = ServerMod:handle_new_game(Server),
     {reply, Reply, Data};
 handle_command({move, Player, Move}, Data) ->
     #{server := Server, server_module := ServerMod} = Data,
-    Reply = ServerMod:move(Server, Player, Move),
+    Reply = ServerMod:handle_move(Server, Player, Move),
     {reply, Reply, Data};
 handle_command({query, Query}, Data) ->
     #{server := Server, server_module := ServerMod} = Data,
-    Reply = ServerMod:query(Server, Query),
+    Reply = ServerMod:handle_query(Server, Query),
     {reply, Reply, Data};
 handle_command({answer, AnswerBits}, Data) ->
     #{

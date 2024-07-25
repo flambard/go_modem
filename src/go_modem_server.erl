@@ -2,17 +2,34 @@
 
 -type server() :: term().
 -type player() :: black | white.
+%% TODO: better type spec for moves
+-type move() :: term().
 
--callback new_game(server()) -> ok | deny.
--callback move(server(), player(), Move :: term()) -> ok | deny.
+-type query() ::
+    game
+    | modem_buffer_size
+    | protocol_version
+    | stones_on_board
+    | black_time_spent
+    | white_time_spent
+    | character_set
+    | rules
+    | handicap
+    | board_size
+    | time_limit
+    | color
+    | who.
 
-% -callback command_name() -> CommandName :: binary().
+%% TODO: better type spec for answers
+-type answer() :: term().
 
-% -callback encode_command_arguments(Command :: command()) -> EncodedArguments :: [iodata()].
+-callback handle_new_game(server()) -> ok | deny.
+-callback handle_move(server(), player(), move()) -> ok | deny.
+-callback handle_query(server(), query()) -> answer().
 
-% -callback decode_response_values(EncodedResponseLines :: [binary()]) ->
-%     ResponseValues :: response_values().
-
+%% Optional callback example
+%
 % -optional_callbacks([
 %     decode_response_values/1
 % ]).
+%
