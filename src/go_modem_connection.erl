@@ -95,10 +95,10 @@ neutral(cast, {recv_message, MessageBytes}, Data) ->
 
     case go_modem_protocol:decode_message(MessageBytes) of
         #message{command = ok} ->
-            %% OK in neutral state - ignore
+            %% OK in neutral state - discard
             keep_state_and_data;
         #message{command = deny} ->
-            %% DENY in neutral state - ignore
+            %% DENY in neutral state - discard
             keep_state_and_data;
         #message{recv_seq_id = RecvSeqID} when RecvSeqID =/= MySeqID ->
             %% New or old command not possible to receive - discard
@@ -143,7 +143,26 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
     NextSenderSeqID = (OpponentSeqID + 1) rem 2,
 
     case go_modem_protocol:decode_message(MessageBytes) of
-        %% TODO: SenderSeqID = OpponentSeqID when OK/DENY
+        #message{
+            send_seq_id = OpponentSeqID,
+            recv_seq_id = MySeqID,
+            command = ok
+        } ->
+            %% TODO: forward OK to server
+            {next_state, neutral, Data};
+        #message{command = ok} ->
+            %% Not possible - discard
+            keep_state_and_data;
+        #message{
+            send_seq_id = OpponentSeqID,
+            recv_seq_id = MySeqID,
+            command = deny
+        } ->
+            %% TODO: forward DENY to server
+            {next_state, neutral, Data};
+        #message{command = deny} ->
+            %% Not possible - discard
+            keep_state_and_data;
         %% TODO: If seq IDs does not match with expected IDs, see spec what to do
         #message{
             send_seq_id = NextSenderSeqID,
