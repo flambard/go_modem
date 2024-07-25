@@ -93,6 +93,6 @@ encode_command_value(Value) when is_integer(Value) ->
     encode_command_value(<<Value:10>>).
 
 encode_new_game_message_test() ->
-    Message = #message{send_seq_id = 0, recv_seq_id = 1, command = new_game},
+    Message = #message{send_seq_id = 1, recv_seq_id = 0, command = new_game},
     IoData = encode_message(Message),
     <<1, 161, 160, 128>> = iolist_to_binary(IoData).
