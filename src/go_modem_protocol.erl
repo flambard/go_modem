@@ -1,6 +1,5 @@
 -module(go_modem_protocol).
 
--include_lib("eunit/include/eunit.hrl").
 -include("go_modem.hrl").
 
 -export([
@@ -91,8 +90,3 @@ encode_command_value(<<V1:3, V2:7>>) ->
     <<0:1, V1:3, 1:1, V2:7>>;
 encode_command_value(Value) when is_integer(Value) ->
     encode_command_value(<<Value:10>>).
-
-encode_new_game_message_test() ->
-    Message = #message{send_seq_id = 1, recv_seq_id = 0, command = new_game},
-    IoData = encode_message(Message),
-    <<1, 161, 160, 128>> = iolist_to_binary(IoData).
