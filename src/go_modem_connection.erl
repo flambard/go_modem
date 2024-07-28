@@ -90,7 +90,6 @@ neutral(cast, {recv_message, MessageBytes}, Data) ->
 
     logger:info("Message while in Neutral. My ID: ~p, Opponent ID: ~p", [MySeqID, OpponentSeqID]),
 
-    %% TODO: If repeated ID, discard the message
     NextSenderSeqID = (OpponentSeqID + 1) rem 2,
 
     case go_modem_protocol:decode_message(MessageBytes) of
