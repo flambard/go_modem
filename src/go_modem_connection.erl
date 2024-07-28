@@ -47,7 +47,7 @@ init([IoDevice, Server, ServerMod]) ->
         my_seq_id => 0,
         opponent_seq_id => 0,
         outstanding_query => undefined,
-        answer_to => undefined
+        reply_to => undefined
     },
     {ok, neutral, Data}.
 
@@ -77,8 +77,8 @@ neutral({call, From}, {send_command, Command}, Data) ->
 
     NewData =
         case Command of
-            {query, Query} -> Data#{answer_to => From, outstanding_query => Query};
-            _ -> Data
+            {query, Query} -> Data#{reply_to => From, outstanding_query => Query};
+            _ -> Data#{reply_to => From}
         end,
     {next_state, ok_wait, NewData#{my_seq_id => MyNewSeqID}};
 neutral(cast, {recv_message, MessageBytes}, Data) ->
@@ -135,7 +135,8 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
     #{
         io_device := IoDevice,
         my_seq_id := MySeqID,
-        opponent_seq_id := OpponentSeqID
+        opponent_seq_id := OpponentSeqID,
+        reply_to := ReplyTo
     } = Data,
 
     logger:info("Message while waiting for OK. My ID: ~p, Opponent ID: ~p", [MySeqID, OpponentSeqID]),
@@ -148,7 +149,7 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
             recv_seq_id = MySeqID,
             command = ok
         } ->
-            %% TODO: forward OK to server
+            gen_statem:reply(ReplyTo, ok),
             {next_state, neutral, Data};
         #message{command = ok} ->
             %% Not possible - discard
@@ -158,7 +159,7 @@ ok_wait(cast, {recv_message, MessageBytes}, Data) ->
             recv_seq_id = MySeqID,
             command = deny
         } ->
-            %% TODO: forward DENY to server
+            gen_statem:reply(ReplyTo, deny),
             {next_state, neutral, Data};
         #message{command = deny} ->
             %% Not possible - discard
@@ -228,12 +229,12 @@ handle_command({answer, AnswerBits}, Data) ->
         server := _Server,
         server_module := _ServerMod,
         outstanding_query := Query,
-        answer_to := AnswerTo
+        reply_to := ReplyTo
     } = Data,
     Answer = go_modem_query:decode_answer(Query, AnswerBits),
-    logger:info("Replying with ANSWER ~p to ~p", [Answer, AnswerTo]),
-    ok = gen_statem:reply(AnswerTo, Answer),
+    logger:info("Replying with ANSWER ~p to ~p", [Answer, ReplyTo]),
+    ok = gen_statem:reply(ReplyTo, Answer),
     %% Reply = ok/deny
     Reply = ok,
-    NewData = Data#{outstanding_query => undefined, answer_to => undefined},
+    NewData = Data#{outstanding_query => undefined, reply_to => undefined},
     {reply, Reply, NewData}.
